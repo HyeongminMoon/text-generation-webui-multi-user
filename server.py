@@ -37,6 +37,7 @@ from datetime import datetime
 from functools import partial
 from pathlib import Path
 from threading import Lock
+import uuid
 
 import psutil
 import torch
@@ -575,7 +576,8 @@ def create_interface():
     css += apply_extensions('css')
     js += apply_extensions('js')
 
-    with gr.Blocks(css=css, analytics_enabled=False, title=title, theme=ui.theme) as shared.gradio['interface']:
+    # with gr.Blocks(css=css, analytics_enabled=False, title=title, theme=ui.theme) as shared.gradio['interface']:
+    with gr.Blocks(css=css, analytics_enabled=False, title=title, theme=ui.theme) as interface:
         if Path("notification.mp3").exists():
             shared.gradio['audio_notification'] = gr.Audio(interactive=False, value="notification.mp3", elem_id="audio_notification", visible=False)
             audio_notification_js = "document.querySelector('#audio_notification audio')?.play();"
@@ -584,41 +586,67 @@ def create_interface():
 
         # Create chat mode interface
         if shared.is_chat():
+            user_id = uuid.uuid4().hex
+            
             shared.input_elements = ui.list_interface_input_elements(chat=True)
+            # input_elements = ui.list_interface_input_elements(chat=True)
             shared.gradio['interface_state'] = gr.State({k: None for k in shared.input_elements})
-            shared.gradio['Chat input'] = gr.State()
-            shared.gradio['dummy'] = gr.State()
-
+            # interface_state = gr.State({k: None for k in input_elements})
+            # shared.gradio['Chat input'] = gr.State()
+            chat_input = gr.State()
+            # shared.gradio['dummy'] = gr.State()
+            dummy = gr.State()
+            
+            history = {'internal': [], 'visible': []}
+            
             with gr.Tab('Text generation', elem_id='main'):
-                shared.gradio['display'] = gr.HTML(value=chat_html_wrapper(shared.history['visible'], shared.settings['name1'], shared.settings['name2'], 'chat', 'cai-chat'))
-                shared.gradio['textbox'] = gr.Textbox(label='Input')
+                # shared.gradio['display'] = gr.HTML(value=chat_html_wrapper(shared.history['visible'], shared.settings['name1'], shared.settings['name2'], 'chat', 'cai-chat'))
+                display = gr.HTML(value=chat_html_wrapper(history['visible'], shared.settings['name1'], shared.settings['name2'], 'chat', 'cai-chat'))
+                # shared.gradio['textbox'] = gr.Textbox(label='Input')
+                textbox = gr.Textbox(label='Input')
                 with gr.Row():
-                    shared.gradio['Stop'] = gr.Button('Stop', elem_id='stop')
-                    shared.gradio['Generate'] = gr.Button('Generate', elem_id='Generate', variant='primary')
-                    shared.gradio['Continue'] = gr.Button('Continue')
+                    # shared.gradio['Stop'] = gr.Button('Stop', elem_id='stop')
+                    stop_btn = gr.Button('Stop', elem_id='stop')
+                    # shared.gradio['Generate'] = gr.Button('Generate', elem_id='Generate', variant='primary')
+                    generate_btn = gr.Button('Generate', elem_id='Generate', variant='primary')
+                    # shared.gradio['Continue'] = gr.Button('Continue')
+                    continue_btn = gr.Button('Continue')
 
                 with gr.Row():
-                    shared.gradio['Impersonate'] = gr.Button('Impersonate')
-                    shared.gradio['Regenerate'] = gr.Button('Regenerate')
-                    shared.gradio['Remove last'] = gr.Button('Remove last')
+                    # shared.gradio['Impersonate'] = gr.Button('Impersonate')
+                    impersonate_btn = gr.Button('Impersonate')
+                    # shared.gradio['Regenerate'] = gr.Button('Regenerate')
+                    regenerate_btn = gr.Button('Regenerate')
+                    # shared.gradio['Remove last'] = gr.Button('Remove last')
+                    
 
                 with gr.Row():
-                    shared.gradio['Copy last reply'] = gr.Button('Copy last reply')
-                    shared.gradio['Replace last reply'] = gr.Button('Replace last reply')
-                    shared.gradio['Send dummy message'] = gr.Button('Send dummy message')
-                    shared.gradio['Send dummy reply'] = gr.Button('Send dummy reply')
+                    # shared.gradio['Copy last reply'] = gr.Button('Copy last reply')
+                    copy_last_reply_btn = gr.Button('Copy last reply')
+                    # shared.gradio['Replace last reply'] = gr.Button('Replace last reply')
+                    replace_last_reply_btn = gr.Button('Replace last reply')
+                    # shared.gradio['Send dummy message'] = gr.Button('Send dummy message')
+                    send_dummy_message_btn = gr.Button('Send dummy message')
+                    # shared.gradio['Send dummy reply'] = gr.Button('Send dummy reply')
+                    send_dummy_reply_btn = gr.Button('Send dummy reply')
 
                 with gr.Row():
-                    shared.gradio['Clear history'] = gr.Button('Clear history')
-                    shared.gradio['Clear history-confirm'] = gr.Button('Confirm', variant='stop', visible=False)
-                    shared.gradio['Clear history-cancel'] = gr.Button('Cancel', visible=False)
+                    # shared.gradio['Clear history'] = gr.Button('Clear history')
+                    clear_history_btn = gr.Button('Clear history')
+                    # shared.gradio['Clear history-confirm'] = gr.Button('Confirm', variant='stop', visible=False)
+                    clear_history_confirm_btn = gr.Button('Confirm', variant='stop', visible=False)
+                    # shared.gradio['Clear history-cancel'] = gr.Button('Cancel', visible=False)
+                    clear_history_cancel_btn = gr.Button('Cancel', visible=False)
 
                 with gr.Row():
-                    shared.gradio['start_with'] = gr.Textbox(label='Start reply with', placeholder='Sure thing!', value=shared.settings['start_with'])
+                    # shared.gradio['start_with'] = gr.Textbox(label='Start reply with', placeholder='Sure thing!', value=shared.settings['start_with'])
+                    start_with = gr.Textbox(label='Start reply with', placeholder='Sure thing!', value=shared.settings['start_with'])
 
                 with gr.Row():
                     shared.gradio['mode'] = gr.Radio(choices=['chat', 'chat-instruct', 'instruct'], value=shared.settings['mode'] if shared.settings['mode'] in ['chat', 'instruct', 'chat-instruct'] else 'chat', label='Mode', info='Defines how the chat prompt is generated. In instruct and chat-instruct modes, the instruction template selected under "Chat settings" must match the current model.')
+                    # mode = gr.Radio(choices=['chat', 'chat-instruct', 'instruct'], value=shared.settings['mode'] if shared.settings['mode'] in ['chat', 'instruct', 'chat-instruct'] else 'chat', label='Mode', info='Defines how the chat prompt is generated. In instruct and chat-instruct modes, the instruction template selected under "Chat settings" must match the current model.')
                     shared.gradio['chat_style'] = gr.Dropdown(choices=utils.get_available_chat_styles(), label='Chat style', value=shared.settings['chat_style'], visible=shared.settings['mode'] != 'instruct')
+                    # chat_style = gr.Dropdown(choices=utils.get_available_chat_styles(), label='Chat style', value=shared.settings['chat_style'], visible=shared.settings['mode'] != 'instruct')
 
             with gr.Tab('Chat settings', elem_id='chat-settings'):
                 with gr.Row():
@@ -685,87 +713,87 @@ def create_interface():
             with gr.Tab("Parameters", elem_id="parameters"):
                 create_settings_menus(default_preset)
 
-        # Create notebook mode interface
-        elif shared.args.notebook:
-            shared.input_elements = ui.list_interface_input_elements(chat=False)
-            shared.gradio['interface_state'] = gr.State({k: None for k in shared.input_elements})
-            shared.gradio['last_input'] = gr.State('')
-            with gr.Tab("Text generation", elem_id="main"):
-                with gr.Row():
-                    with gr.Column(scale=4):
-                        with gr.Tab('Raw'):
-                            shared.gradio['textbox'] = gr.Textbox(value=default_text, elem_classes="textbox", lines=27)
+        # # Create notebook mode interface
+        # elif shared.args.notebook:
+        #     shared.input_elements = ui.list_interface_input_elements(chat=False)
+        #     shared.gradio['interface_state'] = gr.State({k: None for k in shared.input_elements})
+        #     shared.gradio['last_input'] = gr.State('')
+        #     with gr.Tab("Text generation", elem_id="main"):
+        #         with gr.Row():
+        #             with gr.Column(scale=4):
+        #                 with gr.Tab('Raw'):
+        #                     shared.gradio['textbox'] = gr.Textbox(value=default_text, elem_classes="textbox", lines=27)
 
-                        with gr.Tab('Markdown'):
-                            shared.gradio['markdown_render'] = gr.Button('Render')
-                            shared.gradio['markdown'] = gr.Markdown()
+        #                 with gr.Tab('Markdown'):
+        #                     shared.gradio['markdown_render'] = gr.Button('Render')
+        #                     shared.gradio['markdown'] = gr.Markdown()
 
-                        with gr.Tab('HTML'):
-                            shared.gradio['html'] = gr.HTML()
+        #                 with gr.Tab('HTML'):
+        #                     shared.gradio['html'] = gr.HTML()
 
-                        with gr.Row():
-                            shared.gradio['Generate'] = gr.Button('Generate', variant='primary', elem_classes="small-button")
-                            shared.gradio['Stop'] = gr.Button('Stop', elem_classes="small-button")
-                            shared.gradio['Undo'] = gr.Button('Undo', elem_classes="small-button")
-                            shared.gradio['Regenerate'] = gr.Button('Regenerate', elem_classes="small-button")
+        #                 with gr.Row():
+        #                     shared.gradio['Generate'] = gr.Button('Generate', variant='primary', elem_classes="small-button")
+        #                     shared.gradio['Stop'] = gr.Button('Stop', elem_classes="small-button")
+        #                     shared.gradio['Undo'] = gr.Button('Undo', elem_classes="small-button")
+        #                     shared.gradio['Regenerate'] = gr.Button('Regenerate', elem_classes="small-button")
 
-                    with gr.Column(scale=1):
-                        gr.HTML('<div style="padding-bottom: 13px"></div>')
-                        shared.gradio['max_new_tokens'] = gr.Slider(minimum=shared.settings['max_new_tokens_min'], maximum=shared.settings['max_new_tokens_max'], step=1, label='max_new_tokens', value=shared.settings['max_new_tokens'])
-                        with gr.Row():
-                            shared.gradio['prompt_menu'] = gr.Dropdown(choices=utils.get_available_prompts(), value='None', label='Prompt')
-                            ui.create_refresh_button(shared.gradio['prompt_menu'], lambda: None, lambda: {'choices': utils.get_available_prompts()}, 'refresh-button')
+        #             with gr.Column(scale=1):
+        #                 gr.HTML('<div style="padding-bottom: 13px"></div>')
+        #                 shared.gradio['max_new_tokens'] = gr.Slider(minimum=shared.settings['max_new_tokens_min'], maximum=shared.settings['max_new_tokens_max'], step=1, label='max_new_tokens', value=shared.settings['max_new_tokens'])
+        #                 with gr.Row():
+        #                     shared.gradio['prompt_menu'] = gr.Dropdown(choices=utils.get_available_prompts(), value='None', label='Prompt')
+        #                     ui.create_refresh_button(shared.gradio['prompt_menu'], lambda: None, lambda: {'choices': utils.get_available_prompts()}, 'refresh-button')
 
-                        shared.gradio['open_save_prompt'] = gr.Button('Save prompt')
-                        shared.gradio['save_prompt'] = gr.Button('Confirm save prompt', visible=False)
-                        shared.gradio['prompt_to_save'] = gr.Textbox(elem_classes="textbox_default", lines=1, label='Prompt name:', interactive=True, visible=False)
-                        shared.gradio['count_tokens'] = gr.Button('Count tokens')
-                        shared.gradio['status'] = gr.Markdown('')
+        #                 shared.gradio['open_save_prompt'] = gr.Button('Save prompt')
+        #                 shared.gradio['save_prompt'] = gr.Button('Confirm save prompt', visible=False)
+        #                 shared.gradio['prompt_to_save'] = gr.Textbox(elem_classes="textbox_default", lines=1, label='Prompt name:', interactive=True, visible=False)
+        #                 shared.gradio['count_tokens'] = gr.Button('Count tokens')
+        #                 shared.gradio['status'] = gr.Markdown('')
 
-            with gr.Tab("Parameters", elem_id="parameters"):
-                create_settings_menus(default_preset)
+        #     with gr.Tab("Parameters", elem_id="parameters"):
+        #         create_settings_menus(default_preset)
 
-        # Create default mode interface
-        else:
-            shared.input_elements = ui.list_interface_input_elements(chat=False)
-            shared.gradio['interface_state'] = gr.State({k: None for k in shared.input_elements})
-            shared.gradio['last_input'] = gr.State('')
-            with gr.Tab("Text generation", elem_id="main"):
-                with gr.Row():
-                    with gr.Column():
-                        shared.gradio['textbox'] = gr.Textbox(value=default_text, elem_classes="textbox_default", lines=27, label='Input')
-                        shared.gradio['max_new_tokens'] = gr.Slider(minimum=shared.settings['max_new_tokens_min'], maximum=shared.settings['max_new_tokens_max'], step=1, label='max_new_tokens', value=shared.settings['max_new_tokens'])
-                        with gr.Row():
-                            shared.gradio['Generate'] = gr.Button('Generate', variant='primary', elem_classes="small-button")
-                            shared.gradio['Stop'] = gr.Button('Stop', elem_classes="small-button")
-                            shared.gradio['Continue'] = gr.Button('Continue', elem_classes="small-button")
-                            shared.gradio['open_save_prompt'] = gr.Button('Save prompt', elem_classes="small-button")
-                            shared.gradio['save_prompt'] = gr.Button('Confirm save prompt', visible=False, elem_classes="small-button")
-                            shared.gradio['count_tokens'] = gr.Button('Count tokens', elem_classes="small-button")
+        # # Create default mode interface
+        # else:
+        #     shared.input_elements = ui.list_interface_input_elements(chat=False)
+        #     shared.gradio['interface_state'] = gr.State({k: None for k in shared.input_elements})
+        #     shared.gradio['last_input'] = gr.State('')
+        #     with gr.Tab("Text generation", elem_id="main"):
+        #         with gr.Row():
+        #             with gr.Column():
+        #                 shared.gradio['textbox'] = gr.Textbox(value=default_text, elem_classes="textbox_default", lines=27, label='Input')
+        #                 shared.gradio['max_new_tokens'] = gr.Slider(minimum=shared.settings['max_new_tokens_min'], maximum=shared.settings['max_new_tokens_max'], step=1, label='max_new_tokens', value=shared.settings['max_new_tokens'])
+        #                 with gr.Row():
+        #                     shared.gradio['Generate'] = gr.Button('Generate', variant='primary', elem_classes="small-button")
+        #                     shared.gradio['Stop'] = gr.Button('Stop', elem_classes="small-button")
+        #                     shared.gradio['Continue'] = gr.Button('Continue', elem_classes="small-button")
+        #                     shared.gradio['open_save_prompt'] = gr.Button('Save prompt', elem_classes="small-button")
+        #                     shared.gradio['save_prompt'] = gr.Button('Confirm save prompt', visible=False, elem_classes="small-button")
+        #                     shared.gradio['count_tokens'] = gr.Button('Count tokens', elem_classes="small-button")
 
-                        with gr.Row():
-                            with gr.Column():
-                                with gr.Row():
-                                    shared.gradio['prompt_menu'] = gr.Dropdown(choices=utils.get_available_prompts(), value='None', label='Prompt')
-                                    ui.create_refresh_button(shared.gradio['prompt_menu'], lambda: None, lambda: {'choices': utils.get_available_prompts()}, 'refresh-button')
+        #                 with gr.Row():
+        #                     with gr.Column():
+        #                         with gr.Row():
+        #                             shared.gradio['prompt_menu'] = gr.Dropdown(choices=utils.get_available_prompts(), value='None', label='Prompt')
+        #                             ui.create_refresh_button(shared.gradio['prompt_menu'], lambda: None, lambda: {'choices': utils.get_available_prompts()}, 'refresh-button')
 
-                            with gr.Column():
-                                shared.gradio['prompt_to_save'] = gr.Textbox(elem_classes="textbox_default", lines=1, label='Prompt name:', interactive=True, visible=False)
-                                shared.gradio['status'] = gr.Markdown('')
+        #                     with gr.Column():
+        #                         shared.gradio['prompt_to_save'] = gr.Textbox(elem_classes="textbox_default", lines=1, label='Prompt name:', interactive=True, visible=False)
+        #                         shared.gradio['status'] = gr.Markdown('')
 
-                    with gr.Column():
-                        with gr.Tab('Raw'):
-                            shared.gradio['output_textbox'] = gr.Textbox(elem_classes="textbox_default_output", lines=27, label='Output')
+        #             with gr.Column():
+        #                 with gr.Tab('Raw'):
+        #                     shared.gradio['output_textbox'] = gr.Textbox(elem_classes="textbox_default_output", lines=27, label='Output')
 
-                        with gr.Tab('Markdown'):
-                            shared.gradio['markdown_render'] = gr.Button('Render')
-                            shared.gradio['markdown'] = gr.Markdown()
+        #                 with gr.Tab('Markdown'):
+        #                     shared.gradio['markdown_render'] = gr.Button('Render')
+        #                     shared.gradio['markdown'] = gr.Markdown()
 
-                        with gr.Tab('HTML'):
-                            shared.gradio['html'] = gr.HTML()
+        #                 with gr.Tab('HTML'):
+        #                     shared.gradio['html'] = gr.HTML()
 
-            with gr.Tab("Parameters", elem_id="parameters"):
-                create_settings_menus(default_preset)
+        #     with gr.Tab("Parameters", elem_id="parameters"):
+        #         create_settings_menus(default_preset)
 
         # Model tab
         with gr.Tab("Model", elem_id="model-tab"):
@@ -803,49 +831,90 @@ def create_interface():
 
             shared.gradio['toggle_dark_mode'].click(lambda: None, None, None, _js='() => {document.getElementsByTagName("body")[0].classList.toggle("dark")}')
 
+        # shared.gradio['max_new_tokens'] = gr.Slider(minimum=shared.settings['max_new_tokens_min'], maximum=shared.settings['max_new_tokens_max'], step=1, label='max_new_tokens', value=shared.settings['max_new_tokens'])
+        # shared.gradio['name1'] = gr.Textbox(value=shared.settings['name1'], lines=1, label='Your name')
+        # shared.gradio['name2'] = gr.Textbox(value=shared.settings['name2'], lines=1, label='Character\'s name')
+        # shared.gradio['seed'] = gr.Number(value=shared.settings['seed'], label='Seed (-1 for random)')
+        
         # chat mode event handlers
         if shared.is_chat():
-            shared.input_params = [shared.gradio[k] for k in ['Chat input', 'start_with', 'interface_state']]
-            clear_arr = [shared.gradio[k] for k in ['Clear history-confirm', 'Clear history', 'Clear history-cancel']]
-            shared.reload_inputs = [shared.gradio[k] for k in ['name1', 'name2', 'mode', 'chat_style']]
+            # shared.input_params = [shared.gradio[k] for k in ['Chat input', 'start_with', 'interface_state']]
+            input_params = [chat_input, start_with, shared.gradio['interface_state']]
+            # clear_arr = [shared.gradio[k] for k in ['Clear history-confirm', 'Clear history', 'Clear history-cancel']]
+            clear_arr = [clear_history_confirm_btn, clear_history_btn, clear_history_cancel_btn]
+            # shared.reload_inputs = [shared.gradio[k] for k in ['name1', 'name2', 'mode', 'chat_style']]
+            reload_inputs = [shared.gradio[k] for k in ['name1', 'name2', 'mode', 'chat_style']]
 
-            gen_events.append(shared.gradio['Generate'].click(
+            # gen_events.append(shared.gradio['Generate'].click(
+            #     ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
+            #     lambda x: (x, ''), shared.gradio['textbox'], [shared.gradio['Chat input'], shared.gradio['textbox']], show_progress=False).then(
+            #     chat.generate_chat_reply_wrapper, shared.input_params, shared.gradio['display'], show_progress=False).then(
+            #     chat.save_history, shared.gradio['mode'], None, show_progress=False).then(
+            #     lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
+            # )
+            gen_events.append(generate_btn.click(
                 ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
-                lambda x: (x, ''), shared.gradio['textbox'], [shared.gradio['Chat input'], shared.gradio['textbox']], show_progress=False).then(
-                chat.generate_chat_reply_wrapper, shared.input_params, shared.gradio['display'], show_progress=False).then(
-                chat.save_history, shared.gradio['mode'], None, show_progress=False).then(
+                lambda x: (x, ''), textbox, [chat_input, textbox], show_progress=False).then(
+                partial(chat.generate_chat_reply_wrapper, regenerate=False, _continue=False, unshared_history=history), input_params, display, show_progress=False).then(
+                partial(chat.save_history, timestamp=False, unshared_history=history), shared.gradio['mode'], None, show_progress=False).then(
                 lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
             )
 
-            gen_events.append(shared.gradio['textbox'].submit(
+            # gen_events.append(shared.gradio['textbox'].submit(
+            #     ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
+            #     lambda x: (x, ''), shared.gradio['textbox'], [shared.gradio['Chat input'], shared.gradio['textbox']], show_progress=False).then(
+            #     chat.generate_chat_reply_wrapper, shared.input_params, shared.gradio['display'], show_progress=False).then(
+            #     chat.save_history, shared.gradio['mode'], None, show_progress=False).then(
+            #     lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
+            # )
+            gen_events.append(textbox.submit(
                 ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
-                lambda x: (x, ''), shared.gradio['textbox'], [shared.gradio['Chat input'], shared.gradio['textbox']], show_progress=False).then(
-                chat.generate_chat_reply_wrapper, shared.input_params, shared.gradio['display'], show_progress=False).then(
-                chat.save_history, shared.gradio['mode'], None, show_progress=False).then(
+                lambda x: (x, ''), textbox, [chat_input, textbox], show_progress=False).then(
+                partial(chat.generate_chat_reply_wrapper, regenerate=False, _continue=False, unshared_history=history), input_params, display, show_progress=False).then(
+                partial(chat.save_history, timestamp=False, unshared_history=history), shared.gradio['mode'], None, show_progress=False).then(
                 lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
             )
 
-            gen_events.append(shared.gradio['Regenerate'].click(
+            # gen_events.append(shared.gradio['Regenerate'].click(
+            #     ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
+            #     partial(chat.generate_chat_reply_wrapper, regenerate=True), shared.input_params, shared.gradio['display'], show_progress=False).then(
+            #     chat.save_history, shared.gradio['mode'], None, show_progress=False).then(
+            #     lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
+            # )
+            gen_events.append(regenerate_btn.click(
                 ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
-                partial(chat.generate_chat_reply_wrapper, regenerate=True), shared.input_params, shared.gradio['display'], show_progress=False).then(
-                chat.save_history, shared.gradio['mode'], None, show_progress=False).then(
+                partial(chat.generate_chat_reply_wrapper, regenerate=True, _continue=False, unshared_history=history), input_params, display, show_progress=False).then(
+                partial(chat.save_history, timestamp=False, unshared_history=history), shared.gradio['mode'], None, show_progress=False).then(
                 lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
             )
 
-            gen_events.append(shared.gradio['Continue'].click(
+            # gen_events.append(shared.gradio['Continue'].click(
+            #     ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
+            #     partial(chat.generate_chat_reply_wrapper, _continue=True), shared.input_params, shared.gradio['display'], show_progress=False).then(
+            #     chat.save_history, shared.gradio['mode'], None, show_progress=False).then(
+            #     lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
+            # )
+            gen_events.append(continue_btn.click(
                 ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
-                partial(chat.generate_chat_reply_wrapper, _continue=True), shared.input_params, shared.gradio['display'], show_progress=False).then(
-                chat.save_history, shared.gradio['mode'], None, show_progress=False).then(
+                partial(chat.generate_chat_reply_wrapper, regenerate=False, _continue=True, unshared_history=history), input_params, display, show_progress=False).then(
+                partial(chat.save_history, timestamp=False, unshared_history=history), shared.gradio['mode'], None, show_progress=False).then(
                 lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
             )
 
-            gen_events.append(shared.gradio['Impersonate'].click(
+            # gen_events.append(shared.gradio['Impersonate'].click(
+            #     ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
+            #     lambda x: x, shared.gradio['textbox'], shared.gradio['Chat input'], show_progress=False).then(
+            #     chat.impersonate_wrapper, shared.input_params, shared.gradio['textbox'], show_progress=False).then(
+            #     lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
+            # )
+            '''
+            gen_events.append(impersonate_btn.click(
                 ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
-                lambda x: x, shared.gradio['textbox'], shared.gradio['Chat input'], show_progress=False).then(
-                chat.impersonate_wrapper, shared.input_params, shared.gradio['textbox'], show_progress=False).then(
+                lambda x: x, textbox, chat_input, show_progress=False).then(
+                chat.impersonate_wrapper, shared.input_params, textbox, show_progress=False).then(
                 lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
             )
-
+            
             shared.gradio['Replace last reply'].click(
                 chat.replace_last_reply, shared.gradio['textbox'], None).then(
                 lambda: '', None, shared.gradio['textbox'], show_progress=False).then(
@@ -878,112 +947,114 @@ def create_interface():
                 lambda x: gr.update(visible=x != 'instruct'), shared.gradio['mode'], shared.gradio['chat_style'], show_progress=False).then(
                 chat.redraw_html, shared.reload_inputs, shared.gradio['display'])
 
-            shared.gradio['chat_style'].change(chat.redraw_html, shared.reload_inputs, shared.gradio['display'])
-            shared.gradio['instruction_template'].change(
-                partial(chat.load_character, instruct=True), [shared.gradio[k] for k in ['instruction_template', 'name1_instruct', 'name2_instruct']], [shared.gradio[k] for k in ['name1_instruct', 'name2_instruct', 'dummy', 'dummy', 'context_instruct', 'turn_template']])
+            shared.gradio['chat_style'].change(chat.redraw_html, shared.reload_inputs, shared.gradio['display'])'''
+            # shared.gradio['instruction_template'].change(
+            #     partial(chat.load_character, instruct=True), [shared.gradio[k] for k in ['instruction_template', 'name1_instruct', 'name2_instruct']], [shared.gradio[k] for k in ['name1_instruct', 'name2_instruct', 'dummy', 'dummy', 'context_instruct', 'turn_template']])
 
-            shared.gradio['upload_chat_history'].upload(
-                chat.load_history, [shared.gradio[k] for k in ['upload_chat_history', 'name1', 'name2']], None).then(
-                chat.redraw_html, shared.reload_inputs, shared.gradio['display'])
-
+            # shared.gradio['upload_chat_history'].upload(
+            #     chat.load_history, [shared.gradio[k] for k in ['upload_chat_history', 'name1', 'name2']], None).then(
+            #     chat.redraw_html, shared.reload_inputs, shared.gradio['display'])
+            '''
             shared.gradio['Copy last reply'].click(chat.send_last_reply_to_input, None, shared.gradio['textbox'], show_progress=False)
             shared.gradio['Clear history'].click(lambda: [gr.update(visible=True), gr.update(visible=False), gr.update(visible=True)], None, clear_arr)
             shared.gradio['Clear history-cancel'].click(lambda: [gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)], None, clear_arr)
             shared.gradio['Remove last'].click(
                 chat.remove_last_message, None, shared.gradio['textbox'], show_progress=False).then(
                 chat.save_history, shared.gradio['mode'], None, show_progress=False).then(
-                chat.redraw_html, shared.reload_inputs, shared.gradio['display'])
+                chat.redraw_html, shared.reload_inputs, shared.gradio['display'])'''
 
             # Save/delete a character
-            shared.gradio['save_character'].click(
-                lambda x: x, shared.gradio['name2'], shared.gradio['save_character-filename'], show_progress=True).then(
-                lambda: [gr.update(visible=True)] * 3, None, [shared.gradio[k] for k in ['save_character-filename', 'save_character-confirm', 'save_character-cancel']], show_progress=False)
+            # shared.gradio['save_character'].click(
+            #     lambda x: x, shared.gradio['name2'], shared.gradio['save_character-filename'], show_progress=True).then(
+            #     lambda: [gr.update(visible=True)] * 3, None, [shared.gradio[k] for k in ['save_character-filename', 'save_character-confirm', 'save_character-cancel']], show_progress=False)
 
-            shared.gradio['save_character-cancel'].click(
-                lambda: [gr.update(visible=False)] * 3, None, [shared.gradio[k] for k in ['save_character-filename', 'save_character-confirm', 'save_character-cancel']], show_progress=False)
+            # shared.gradio['save_character-cancel'].click(
+            #     lambda: [gr.update(visible=False)] * 3, None, [shared.gradio[k] for k in ['save_character-filename', 'save_character-confirm', 'save_character-cancel']], show_progress=False)
 
-            shared.gradio['save_character-confirm'].click(
-                partial(chat.save_character, instruct=False), [shared.gradio[k] for k in ['name2', 'greeting', 'context', 'character_picture', 'save_character-filename']], None).then(
-                lambda: [gr.update(visible=False)] * 3, None, [shared.gradio[k] for k in ['save_character-filename', 'save_character-confirm', 'save_character-cancel']], show_progress=False).then(
-                lambda x: x, shared.gradio['save_character-filename'], shared.gradio['character_menu'])
+            # shared.gradio['save_character-confirm'].click(
+            #     partial(chat.save_character, instruct=False), [shared.gradio[k] for k in ['name2', 'greeting', 'context', 'character_picture', 'save_character-filename']], None).then(
+            #     lambda: [gr.update(visible=False)] * 3, None, [shared.gradio[k] for k in ['save_character-filename', 'save_character-confirm', 'save_character-cancel']], show_progress=False).then(
+            #     lambda x: x, shared.gradio['save_character-filename'], shared.gradio['character_menu'])
 
-            shared.gradio['delete_character'].click(
-                lambda: [gr.update(visible=True)] * 2, None, [shared.gradio[k] for k in ['delete_character-confirm', 'delete_character-cancel']], show_progress=False)
+            # shared.gradio['delete_character'].click(
+            #     lambda: [gr.update(visible=True)] * 2, None, [shared.gradio[k] for k in ['delete_character-confirm', 'delete_character-cancel']], show_progress=False)
 
-            shared.gradio['delete_character-cancel'].click(
-                lambda: [gr.update(visible=False)] * 2, None, [shared.gradio[k] for k in ['delete_character-confirm', 'delete_character-cancel']], show_progress=False)
+            # shared.gradio['delete_character-cancel'].click(
+            #     lambda: [gr.update(visible=False)] * 2, None, [shared.gradio[k] for k in ['delete_character-confirm', 'delete_character-cancel']], show_progress=False)
 
-            shared.gradio['delete_character-confirm'].click(
-                partial(chat.delete_character, instruct=False), shared.gradio['character_menu'], None).then(
-                lambda: gr.update(choices=utils.get_available_characters()), outputs=shared.gradio['character_menu']).then(
-                lambda: 'None', None, shared.gradio['character_menu']).then(
-                lambda: [gr.update(visible=False)] * 2, None, [shared.gradio[k] for k in ['delete_character-confirm', 'delete_character-cancel']], show_progress=False)
+            # shared.gradio['delete_character-confirm'].click(
+            #     partial(chat.delete_character, instruct=False), shared.gradio['character_menu'], None).then(
+            #     lambda: gr.update(choices=utils.get_available_characters()), outputs=shared.gradio['character_menu']).then(
+            #     lambda: 'None', None, shared.gradio['character_menu']).then(
+            #     lambda: [gr.update(visible=False)] * 2, None, [shared.gradio[k] for k in ['delete_character-confirm', 'delete_character-cancel']], show_progress=False)
 
-            shared.gradio['download_button'].click(lambda x: chat.save_history(x, timestamp=True), shared.gradio['mode'], shared.gradio['download'])
-            shared.gradio['Upload character'].click(chat.upload_character, [shared.gradio['upload_json'], shared.gradio['upload_img_bot']], [shared.gradio['character_menu']])
-            shared.gradio['character_menu'].change(
-                partial(chat.load_character, instruct=False), [shared.gradio[k] for k in ['character_menu', 'name1', 'name2']], [shared.gradio[k] for k in ['name1', 'name2', 'character_picture', 'greeting', 'context', 'dummy']]).then(
-                chat.redraw_html, shared.reload_inputs, shared.gradio['display'])
+            # shared.gradio['download_button'].click(lambda x: chat.save_history(x, timestamp=True), shared.gradio['mode'], shared.gradio['download'])
+            # shared.gradio['Upload character'].click(chat.upload_character, [shared.gradio['upload_json'], shared.gradio['upload_img_bot']], [shared.gradio['character_menu']])
+            # shared.gradio['character_menu'].change(
+            #     partial(chat.load_character, instruct=False), [shared.gradio[k] for k in ['character_menu', 'name1', 'name2']], [shared.gradio[k] for k in ['name1', 'name2', 'character_picture', 'greeting', 'context', 'dummy']]).then(
+            #     chat.redraw_html, shared.reload_inputs, shared.gradio['display'])
 
-            shared.gradio['upload_img_tavern'].upload(chat.upload_tavern_character, [shared.gradio['upload_img_tavern'], shared.gradio['name1'], shared.gradio['name2']], [shared.gradio['character_menu']])
-            shared.gradio['your_picture'].change(
-                chat.upload_your_profile_picture, shared.gradio['your_picture'], None).then(
-                partial(chat.redraw_html, reset_cache=True), shared.reload_inputs, shared.gradio['display'])
+            # shared.gradio['upload_img_tavern'].upload(chat.upload_tavern_character, [shared.gradio['upload_img_tavern'], shared.gradio['name1'], shared.gradio['name2']], [shared.gradio['character_menu']])
+            # shared.gradio['your_picture'].change(
+            #     chat.upload_your_profile_picture, shared.gradio['your_picture'], None).then(
+            #     partial(chat.redraw_html, reset_cache=True), shared.reload_inputs, shared.gradio['display'])
 
         # notebook/default modes event handlers
-        else:
-            shared.input_params = [shared.gradio[k] for k in ['textbox', 'interface_state']]
-            if shared.args.notebook:
-                output_params = [shared.gradio[k] for k in ['textbox', 'html']]
-            else:
-                output_params = [shared.gradio[k] for k in ['output_textbox', 'html']]
+        # else:
+        #     shared.input_params = [shared.gradio[k] for k in ['textbox', 'interface_state']]
+        #     if shared.args.notebook:
+        #         output_params = [shared.gradio[k] for k in ['textbox', 'html']]
+        #     else:
+        #         output_params = [shared.gradio[k] for k in ['output_textbox', 'html']]
 
-            gen_events.append(shared.gradio['Generate'].click(
-                lambda x: x, shared.gradio['textbox'], shared.gradio['last_input']).then(
-                ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
-                generate_reply_wrapper, shared.input_params, output_params, show_progress=False).then(
-                lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
-                # lambda: None, None, None, _js="() => {element = document.getElementsByTagName('textarea')[0]; element.scrollTop = element.scrollHeight}")
-            )
+        #     gen_events.append(shared.gradio['Generate'].click(
+        #         lambda x: x, shared.gradio['textbox'], shared.gradio['last_input']).then(
+        #         ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
+        #         generate_reply_wrapper, shared.input_params, output_params, show_progress=False).then(
+        #         lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
+        #         # lambda: None, None, None, _js="() => {element = document.getElementsByTagName('textarea')[0]; element.scrollTop = element.scrollHeight}")
+        #     )
 
-            gen_events.append(shared.gradio['textbox'].submit(
-                lambda x: x, shared.gradio['textbox'], shared.gradio['last_input']).then(
-                ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
-                generate_reply_wrapper, shared.input_params, output_params, show_progress=False).then(
-                lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
-                # lambda: None, None, None, _js="() => {element = document.getElementsByTagName('textarea')[0]; element.scrollTop = element.scrollHeight}")
-            )
+        #     gen_events.append(shared.gradio['textbox'].submit(
+        #         lambda x: x, shared.gradio['textbox'], shared.gradio['last_input']).then(
+        #         ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
+        #         generate_reply_wrapper, shared.input_params, output_params, show_progress=False).then(
+        #         lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
+        #         # lambda: None, None, None, _js="() => {element = document.getElementsByTagName('textarea')[0]; element.scrollTop = element.scrollHeight}")
+        #     )
 
-            if shared.args.notebook:
-                shared.gradio['Undo'].click(lambda x: x, shared.gradio['last_input'], shared.gradio['textbox'], show_progress=False)
-                shared.gradio['markdown_render'].click(lambda x: x, shared.gradio['textbox'], shared.gradio['markdown'], queue=False)
-                gen_events.append(shared.gradio['Regenerate'].click(
-                    lambda x: x, shared.gradio['last_input'], shared.gradio['textbox'], show_progress=False).then(
-                    ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
-                    generate_reply_wrapper, shared.input_params, output_params, show_progress=False).then(
-                    lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
-                    # lambda: None, None, None, _js="() => {element = document.getElementsByTagName('textarea')[0]; element.scrollTop = element.scrollHeight}")
-                )
-            else:
-                shared.gradio['markdown_render'].click(lambda x: x, shared.gradio['output_textbox'], shared.gradio['markdown'], queue=False)
-                gen_events.append(shared.gradio['Continue'].click(
-                    ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
-                    generate_reply_wrapper, [shared.gradio['output_textbox']] + shared.input_params[1:], output_params, show_progress=False).then(
-                    lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
-                    # lambda: None, None, None, _js="() => {element = document.getElementsByTagName('textarea')[1]; element.scrollTop = element.scrollHeight}")
-                )
+        #     if shared.args.notebook:
+        #         shared.gradio['Undo'].click(lambda x: x, shared.gradio['last_input'], shared.gradio['textbox'], show_progress=False)
+        #         shared.gradio['markdown_render'].click(lambda x: x, shared.gradio['textbox'], shared.gradio['markdown'], queue=False)
+        #         gen_events.append(shared.gradio['Regenerate'].click(
+        #             lambda x: x, shared.gradio['last_input'], shared.gradio['textbox'], show_progress=False).then(
+        #             ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
+        #             generate_reply_wrapper, shared.input_params, output_params, show_progress=False).then(
+        #             lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
+        #             # lambda: None, None, None, _js="() => {element = document.getElementsByTagName('textarea')[0]; element.scrollTop = element.scrollHeight}")
+        #         )
+        #     else:
+        #         shared.gradio['markdown_render'].click(lambda x: x, shared.gradio['output_textbox'], shared.gradio['markdown'], queue=False)
+        #         gen_events.append(shared.gradio['Continue'].click(
+        #             ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
+        #             generate_reply_wrapper, [shared.gradio['output_textbox']] + shared.input_params[1:], output_params, show_progress=False).then(
+        #             lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
+        #             # lambda: None, None, None, _js="() => {element = document.getElementsByTagName('textarea')[1]; element.scrollTop = element.scrollHeight}")
+        #         )
 
-            shared.gradio['Stop'].click(stop_everything_event, None, None, queue=False, cancels=gen_events if shared.args.no_stream else None)
-            shared.gradio['prompt_menu'].change(load_prompt, shared.gradio['prompt_menu'], shared.gradio['textbox'], show_progress=False)
-            shared.gradio['open_save_prompt'].click(open_save_prompt, None, [shared.gradio[k] for k in ['prompt_to_save', 'open_save_prompt', 'save_prompt']], show_progress=False)
-            shared.gradio['save_prompt'].click(save_prompt, [shared.gradio[k] for k in ['textbox', 'prompt_to_save']], [shared.gradio[k] for k in ['status', 'prompt_to_save', 'open_save_prompt', 'save_prompt']], show_progress=False)
-            shared.gradio['count_tokens'].click(count_tokens, shared.gradio['textbox'], shared.gradio['status'], show_progress=False)
+        #     shared.gradio['Stop'].click(stop_everything_event, None, None, queue=False, cancels=gen_events if shared.args.no_stream else None)
+        #     shared.gradio['prompt_menu'].change(load_prompt, shared.gradio['prompt_menu'], shared.gradio['textbox'], show_progress=False)
+        #     shared.gradio['open_save_prompt'].click(open_save_prompt, None, [shared.gradio[k] for k in ['prompt_to_save', 'open_save_prompt', 'save_prompt']], show_progress=False)
+        #     shared.gradio['save_prompt'].click(save_prompt, [shared.gradio[k] for k in ['textbox', 'prompt_to_save']], [shared.gradio[k] for k in ['status', 'prompt_to_save', 'open_save_prompt', 'save_prompt']], show_progress=False)
+        #     shared.gradio['count_tokens'].click(count_tokens, shared.gradio['textbox'], shared.gradio['status'], show_progress=False)
 
-        shared.gradio['interface'].load(lambda: None, None, None, _js=f"() => {{{js}}}")
+        # shared.gradio['interface'].load(lambda: None, None, None, _js=f"() => {{{js}}}")
         if shared.settings['dark_theme']:
-            shared.gradio['interface'].load(lambda: None, None, None, _js="() => document.getElementsByTagName('body')[0].classList.add('dark')")
+            # shared.gradio['interface'].load(lambda: None, None, None, _js="() => document.getElementsByTagName('body')[0].classList.add('dark')")
+            interface.load(lambda: None, None, None, _js="() => document.getElementsByTagName('body')[0].classList.add('dark')")
 
-        shared.gradio['interface'].load(partial(ui.apply_interface_values, {}, use_persistent=True), None, [shared.gradio[k] for k in ui.list_interface_input_elements(chat=shared.is_chat())], show_progress=False)
+        # shared.gradio['interface'].load(partial(ui.apply_interface_values, {}, use_persistent=True), None, [shared.gradio[k] for k in ui.list_interface_input_elements(chat=shared.is_chat())], show_progress=False)
+        interface.load(partial(ui.apply_interface_values, {}, use_persistent=True), None, [shared.gradio[k] for k in ui.list_interface_input_elements(chat=shared.is_chat())], show_progress=False)
 
         # Extensions tabs
         extensions_module.create_extensions_tabs()
@@ -992,11 +1063,14 @@ def create_interface():
         extensions_module.create_extensions_block()
 
     # Launch the interface
-    shared.gradio['interface'].queue()
+    # shared.gradio['interface'].queue()
+    interface.queue()
     if shared.args.listen:
-        shared.gradio['interface'].launch(prevent_thread_lock=True, share=shared.args.share, server_name=shared.args.listen_host or '0.0.0.0', server_port=shared.args.listen_port, inbrowser=shared.args.auto_launch, auth=auth)
+        # shared.gradio['interface'].launch(prevent_thread_lock=True, share=shared.args.share, server_name=shared.args.listen_host or '0.0.0.0', server_port=shared.args.listen_port, inbrowser=shared.args.auto_launch, auth=auth)
+        interface.launch(prevent_thread_lock=True, share=shared.args.share, server_name=shared.args.listen_host or '0.0.0.0', server_port=shared.args.listen_port, inbrowser=shared.args.auto_launch, auth=auth)
     else:
-        shared.gradio['interface'].launch(prevent_thread_lock=True, share=shared.args.share, server_port=shared.args.listen_port, inbrowser=shared.args.auto_launch, auth=auth)
+        # shared.gradio['interface'].launch(prevent_thread_lock=True, share=shared.args.share, server_port=shared.args.listen_port, inbrowser=shared.args.auto_launch, auth=auth)
+        interface.launch(prevent_thread_lock=True, share=shared.args.share, server_port=shared.args.listen_port, inbrowser=shared.args.auto_launch, auth=auth)
 
 
 if __name__ == "__main__":

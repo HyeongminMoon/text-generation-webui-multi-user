@@ -319,7 +319,7 @@ def generate_chat_reply(text, history, state, regenerate=False, _continue=False,
 
 
 # Same as above but returns HTML for the UI
-def generate_chat_reply_wrapper(text, start_with, state, regenerate=False, _continue=False):
+def generate_chat_reply_wrapper(text, start_with, state, regenerate=False, _continue=False, unshared_history=None):
     if start_with != '' and _continue == False:
         if regenerate == True:
             text = remove_last_message()
@@ -329,9 +329,11 @@ def generate_chat_reply_wrapper(text, start_with, state, regenerate=False, _cont
         send_dummy_message(text)
         send_dummy_reply(start_with)
 
-    for i, history in enumerate(generate_chat_reply(text, shared.history, state, regenerate, _continue, loading_message=True)):
+    _history = unshared_history if unshared_history is not None else shared.history
+    
+    for i, history in enumerate(generate_chat_reply(text, _history, state, regenerate, _continue, loading_message=True)):
         if i != 0:
-            shared.history = copy.deepcopy(history)
+            _history = copy.deepcopy(history)
 
         yield chat_html_wrapper(history['visible'], state['name1'], state['name2'], state['mode'], state['chat_style'])
 
@@ -428,7 +430,7 @@ def tokenize_dialogue(dialogue, name1, name2):
     return history
 
 
-def save_history(mode, timestamp=False):
+def save_history(mode, timestamp=False, unshared_history=None):
     # Instruct mode histories should not be saved as if
     # Alpaca or Vicuna were characters
     if mode == 'instruct':
@@ -438,7 +440,8 @@ def save_history(mode, timestamp=False):
         fname = f"Instruct_{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
     else:
         if shared.character == 'None':
-            return
+            # return
+            fname = f"{shared.character}_persistent_test.json"
 
         if timestamp:
             fname = f"{shared.character}_{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
@@ -449,7 +452,10 @@ def save_history(mode, timestamp=False):
         Path('logs').mkdir()
 
     with open(Path(f'logs/{fname}'), 'w', encoding='utf-8') as f:
-        f.write(json.dumps({'data': shared.history['internal'], 'data_visible': shared.history['visible']}, indent=2))
+        if unshared_history:
+            f.write(json.dumps({'data': unshared_history['internal'], 'data_visible': unshared_history['visible']}, indent=2))
+        else:
+            f.write(json.dumps({'data': shared.history['internal'], 'data_visible': shared.history['visible']}, indent=2))
 
     return Path(f'logs/{fname}')
 
