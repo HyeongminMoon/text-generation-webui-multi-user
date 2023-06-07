@@ -17,13 +17,13 @@ from modules.logging_colors import logger
 from modules.models import clear_torch_cache, local_rank
 
 
-def generate_reply(*args, **kwargs):
-    shared.generation_lock.acquire()
-    try:
-        for result in _generate_reply(*args, **kwargs):
-            yield result
-    finally:
-        shared.generation_lock.release()
+# def generate_reply(*args, **kwargs):
+#     shared.generation_lock.acquire()
+#     try:
+#         for result in _generate_reply(*args, **kwargs):
+#             yield result
+#     finally:
+#         shared.generation_lock.release()
 
 
 def get_max_prompt_length(state):
@@ -148,7 +148,7 @@ def generate_reply_wrapper(question, state, eos_token=None, stopping_strings=Non
         yield formatted_outputs(reply, shared.model_name)
 
 
-def _generate_reply(question, state, eos_token=None, stopping_strings=None, is_chat=False):
+def generate_reply(question, state, eos_token=None, stopping_strings=None, is_chat=False):
     state = apply_extensions('state', state)
     generate_func = apply_extensions('custom_generate_reply')
     if generate_func is None:

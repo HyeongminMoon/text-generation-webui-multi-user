@@ -15,6 +15,7 @@ lora_names = []
 
 # Chat variables
 history = {'internal': [], 'visible': []}
+multi_history = {}
 character = 'None'
 stop_everything = False
 processing_message = '*Is typing...*'

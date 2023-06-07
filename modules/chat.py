@@ -19,6 +19,7 @@ from modules.text_generation import (generate_reply, get_encoded_length,
                                      get_max_prompt_length)
 from modules.utils import replace_all
 
+import uuid
 
 def get_turn_substrings(state, instruct=False):
     if instruct:
@@ -319,7 +320,10 @@ def generate_chat_reply(text, history, state, regenerate=False, _continue=False,
 
 
 # Same as above but returns HTML for the UI
-def generate_chat_reply_wrapper(text, start_with, state, regenerate=False, _continue=False):
+def generate_chat_reply_wrapper(text, start_with, state, user_id, regenerate=False, _continue=False):
+    if 'value' in user_id:
+        user_id = user_id.value
+    
     if start_with != '' and _continue == False:
         if regenerate == True:
             text = remove_last_message()
@@ -329,9 +333,11 @@ def generate_chat_reply_wrapper(text, start_with, state, regenerate=False, _cont
         send_dummy_message(text)
         send_dummy_reply(start_with)
 
-    for i, history in enumerate(generate_chat_reply(text, shared.history, state, regenerate, _continue, loading_message=True)):
+    # _history = shared.multi_history[user_id] if user_id else shared.history
+    
+    for i, history in enumerate(generate_chat_reply(text, shared.multi_history[user_id], state, regenerate, _continue, loading_message=True)):
         if i != 0:
-            shared.history = copy.deepcopy(history)
+            shared.multi_history[user_id] = copy.deepcopy(history)
 
         yield chat_html_wrapper(history['visible'], state['name1'], state['name2'], state['mode'], state['chat_style'])
 
@@ -428,7 +434,9 @@ def tokenize_dialogue(dialogue, name1, name2):
     return history
 
 
-def save_history(mode, timestamp=False):
+def save_history(mode, user_id, timestamp=False):
+    if 'value' in user_id:
+        user_id = user_id.value
     # Instruct mode histories should not be saved as if
     # Alpaca or Vicuna were characters
     if mode == 'instruct':
@@ -437,19 +445,19 @@ def save_history(mode, timestamp=False):
 
         fname = f"Instruct_{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
     else:
-        if shared.character == 'None':
-            return
+        # if shared.character == 'None':
+            # return
 
         if timestamp:
             fname = f"{shared.character}_{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
         else:
-            fname = f"{shared.character}_persistent.json"
+            fname = f"{shared.character}_persistent_{user_id}.json"
 
     if not Path('logs').exists():
         Path('logs').mkdir()
 
     with open(Path(f'logs/{fname}'), 'w', encoding='utf-8') as f:
-        f.write(json.dumps({'data': shared.history['internal'], 'data_visible': shared.history['visible']}, indent=2))
+        f.write(json.dumps({'data': shared.multi_history[user_id]['internal'], 'data_visible': shared.multi_history[user_id]['visible']}, indent=2))
 
     return Path(f'logs/{fname}')
 
@@ -501,6 +509,9 @@ def generate_pfp_cache(character):
 
 
 def load_character(character, name1, name2, instruct=False):
+    user_id = uuid.uuid4().hex
+    shared.multi_history[user_id] = copy.deepcopy(shared.history)
+
     shared.character = character
     context = greeting = turn_template = ""
     greeting_field = 'greeting'
@@ -572,9 +583,9 @@ def load_character(character, name1, name2, instruct=False):
                 shared.history['visible'] += [['', apply_extensions("output", greeting)]]
 
             # Create .json log files since they don't already exist
-            save_history('instruct' if instruct else 'chat')
+            save_history('instruct' if instruct else 'chat', user_id)
 
-    return name1, name2, picture, greeting, context, repr(turn_template)[1:-1]
+    return name1, name2, picture, greeting, context, repr(turn_template)[1:-1], user_id
 
 
 @functools.cache

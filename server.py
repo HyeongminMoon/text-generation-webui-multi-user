@@ -37,6 +37,8 @@ from datetime import datetime
 from functools import partial
 from pathlib import Path
 from threading import Lock
+import uuid
+import copy
 
 import psutil
 import torch
@@ -575,13 +577,27 @@ def create_interface():
     css += apply_extensions('css')
     js += apply_extensions('js')
 
-    with gr.Blocks(css=css, analytics_enabled=False, title=title, theme=ui.theme) as shared.gradio['interface']:
+    # multi-user support
+    multi_user = True
+    if multi_user:
+        user_id = uuid.uuid4().hex
+        shared.multi_history[user_id] = copy.deepcopy(shared.history)
+    else:
+        user_id = ''
+    
+    # with gr.Blocks(css=css, analytics_enabled=False, title=title, theme=ui.theme) as shared.gradio['interface']:
+    with gr.Blocks(css=css, analytics_enabled=False, title=title, theme=ui.theme) as interface:
         if Path("notification.mp3").exists():
             shared.gradio['audio_notification'] = gr.Audio(interactive=False, value="notification.mp3", elem_id="audio_notification", visible=False)
             audio_notification_js = "document.querySelector('#audio_notification audio')?.play();"
         else:
             audio_notification_js = ""
 
+        if multi_user:
+            shared.gradio['test'] = gr.Dropdown(label='Test')
+            id_box = gr.Textbox(label='uuid')
+            
+            
         # Create chat mode interface
         if shared.is_chat():
             shared.input_elements = ui.list_interface_input_elements(chat=True)
@@ -590,7 +606,10 @@ def create_interface():
             shared.gradio['dummy'] = gr.State()
 
             with gr.Tab('Text generation', elem_id='main'):
-                shared.gradio['display'] = gr.HTML(value=chat_html_wrapper(shared.history['visible'], shared.settings['name1'], shared.settings['name2'], 'chat', 'cai-chat'))
+                if multi_user:
+                    shared.gradio['display'] = gr.HTML(value=chat_html_wrapper(shared.multi_history[user_id]['visible'], shared.settings['name1'], shared.settings['name2'], 'chat', 'cai-chat'))
+                else:
+                    shared.gradio['display'] = gr.HTML(value=chat_html_wrapper(shared.history['visible'], shared.settings['name1'], shared.settings['name2'], 'chat', 'cai-chat'))
                 shared.gradio['textbox'] = gr.Textbox(label='Input')
                 with gr.Row():
                     shared.gradio['Stop'] = gr.Button('Stop', elem_id='stop')
@@ -812,30 +831,30 @@ def create_interface():
             gen_events.append(shared.gradio['Generate'].click(
                 ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
                 lambda x: (x, ''), shared.gradio['textbox'], [shared.gradio['Chat input'], shared.gradio['textbox']], show_progress=False).then(
-                chat.generate_chat_reply_wrapper, shared.input_params, shared.gradio['display'], show_progress=False).then(
-                chat.save_history, shared.gradio['mode'], None, show_progress=False).then(
+                chat.generate_chat_reply_wrapper, shared.input_params+[id_box], shared.gradio['display'], show_progress=False).then(
+                chat.save_history, [shared.gradio['mode'], id_box], None, show_progress=False).then(
                 lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
             )
 
             gen_events.append(shared.gradio['textbox'].submit(
                 ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
                 lambda x: (x, ''), shared.gradio['textbox'], [shared.gradio['Chat input'], shared.gradio['textbox']], show_progress=False).then(
-                chat.generate_chat_reply_wrapper, shared.input_params, shared.gradio['display'], show_progress=False).then(
-                chat.save_history, shared.gradio['mode'], None, show_progress=False).then(
+                chat.generate_chat_reply_wrapper, shared.input_params+[id_box], shared.gradio['display'], show_progress=False).then(
+                chat.save_history, [shared.gradio['mode'], id_box], None, show_progress=False).then(
                 lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
             )
 
             gen_events.append(shared.gradio['Regenerate'].click(
                 ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
-                partial(chat.generate_chat_reply_wrapper, regenerate=True), shared.input_params, shared.gradio['display'], show_progress=False).then(
-                chat.save_history, shared.gradio['mode'], None, show_progress=False).then(
+                partial(chat.generate_chat_reply_wrapper, regenerate=True), shared.input_params+[id_box], shared.gradio['display'], show_progress=False).then(
+                chat.save_history, [shared.gradio['mode'], id_box], None, show_progress=False).then(
                 lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
             )
 
             gen_events.append(shared.gradio['Continue'].click(
                 ui.gather_interface_values, [shared.gradio[k] for k in shared.input_elements], shared.gradio['interface_state']).then(
-                partial(chat.generate_chat_reply_wrapper, _continue=True), shared.input_params, shared.gradio['display'], show_progress=False).then(
-                chat.save_history, shared.gradio['mode'], None, show_progress=False).then(
+                partial(chat.generate_chat_reply_wrapper, _continue=True), shared.input_params+[id_box], shared.gradio['display'], show_progress=False).then(
+                chat.save_history, [shared.gradio['mode'], id_box], None, show_progress=False).then(
                 lambda: None, None, None, _js=f"() => {{{audio_notification_js}}}")
             )
 
@@ -880,8 +899,13 @@ def create_interface():
 
             shared.gradio['chat_style'].change(chat.redraw_html, shared.reload_inputs, shared.gradio['display'])
             shared.gradio['instruction_template'].change(
-                partial(chat.load_character, instruct=True), [shared.gradio[k] for k in ['instruction_template', 'name1_instruct', 'name2_instruct']], [shared.gradio[k] for k in ['name1_instruct', 'name2_instruct', 'dummy', 'dummy', 'context_instruct', 'turn_template']])
+                partial(chat.load_character, instruct=False), [shared.gradio[k] for k in ['instruction_template', 'name1_instruct', 'name2_instruct']], [shared.gradio[k] for k in ['name1_instruct', 'name2_instruct', 'dummy', 'dummy', 'context_instruct', 'turn_template', 'test']])
 
+            # shared.multi_history.change
+            shared.gradio['test'].change(
+                partial(chat.load_character, instruct=True), [shared.gradio[k] for k in ['instruction_template', 'name1_instruct', 'name2_instruct']], [shared.gradio[k] for k in ['name1_instruct', 'name2_instruct', 'dummy', 'dummy', 'context_instruct', 'turn_template']]+[id_box])
+            
+            
             shared.gradio['upload_chat_history'].upload(
                 chat.load_history, [shared.gradio[k] for k in ['upload_chat_history', 'name1', 'name2']], None).then(
                 chat.redraw_html, shared.reload_inputs, shared.gradio['display'])
@@ -922,7 +946,7 @@ def create_interface():
             shared.gradio['download_button'].click(lambda x: chat.save_history(x, timestamp=True), shared.gradio['mode'], shared.gradio['download'])
             shared.gradio['Upload character'].click(chat.upload_character, [shared.gradio['upload_json'], shared.gradio['upload_img_bot']], [shared.gradio['character_menu']])
             shared.gradio['character_menu'].change(
-                partial(chat.load_character, instruct=False), [shared.gradio[k] for k in ['character_menu', 'name1', 'name2']], [shared.gradio[k] for k in ['name1', 'name2', 'character_picture', 'greeting', 'context', 'dummy']]).then(
+                partial(chat.load_character, instruct=False), [shared.gradio[k] for k in ['character_menu', 'name1', 'name2']], [shared.gradio[k] for k in ['name1', 'name2', 'character_picture', 'greeting', 'context', 'dummy', 'test']]).then(
                 chat.redraw_html, shared.reload_inputs, shared.gradio['display'])
 
             shared.gradio['upload_img_tavern'].upload(chat.upload_tavern_character, [shared.gradio['upload_img_tavern'], shared.gradio['name1'], shared.gradio['name2']], [shared.gradio['character_menu']])
@@ -979,11 +1003,11 @@ def create_interface():
             shared.gradio['save_prompt'].click(save_prompt, [shared.gradio[k] for k in ['textbox', 'prompt_to_save']], [shared.gradio[k] for k in ['status', 'prompt_to_save', 'open_save_prompt', 'save_prompt']], show_progress=False)
             shared.gradio['count_tokens'].click(count_tokens, shared.gradio['textbox'], shared.gradio['status'], show_progress=False)
 
-        shared.gradio['interface'].load(lambda: None, None, None, _js=f"() => {{{js}}}")
+        interface.load(lambda: None, None, None, _js=f"() => {{{js}}}")
         if shared.settings['dark_theme']:
-            shared.gradio['interface'].load(lambda: None, None, None, _js="() => document.getElementsByTagName('body')[0].classList.add('dark')")
+            interface.load(lambda: None, None, None, _js="() => document.getElementsByTagName('body')[0].classList.add('dark')")
 
-        shared.gradio['interface'].load(partial(ui.apply_interface_values, {}, use_persistent=True), None, [shared.gradio[k] for k in ui.list_interface_input_elements(chat=shared.is_chat())], show_progress=False)
+        interface.load(partial(ui.apply_interface_values, {}, use_persistent=True), None, [shared.gradio[k] for k in ui.list_interface_input_elements(chat=shared.is_chat())], show_progress=False)
 
         # Extensions tabs
         extensions_module.create_extensions_tabs()
@@ -992,11 +1016,11 @@ def create_interface():
         extensions_module.create_extensions_block()
 
     # Launch the interface
-    shared.gradio['interface'].queue()
+    interface.queue()
     if shared.args.listen:
-        shared.gradio['interface'].launch(prevent_thread_lock=True, share=shared.args.share, server_name=shared.args.listen_host or '0.0.0.0', server_port=shared.args.listen_port, inbrowser=shared.args.auto_launch, auth=auth)
+        interface.launch(prevent_thread_lock=True, share=shared.args.share, server_name=shared.args.listen_host or '0.0.0.0', server_port=shared.args.listen_port, inbrowser=shared.args.auto_launch, auth=auth)
     else:
-        shared.gradio['interface'].launch(prevent_thread_lock=True, share=shared.args.share, server_port=shared.args.listen_port, inbrowser=shared.args.auto_launch, auth=auth)
+        interface.launch(prevent_thread_lock=True, share=shared.args.share, server_port=shared.args.listen_port, inbrowser=shared.args.auto_launch, auth=auth)
 
 
 if __name__ == "__main__":
@@ -1085,10 +1109,19 @@ if __name__ == "__main__":
         shared.persistent_interface_state.update({
             'mode': shared.settings['mode'],
             'character_menu': shared.args.character or shared.settings['character'],
-            'instruction_template': shared.settings['instruction_template']
+            'instruction_template': shared.settings['instruction_template'],
+            'test': 'asdf'
         })
 
-    shared.generation_lock = Lock()
+    multi_user = True
+    if multi_user:
+        user_id = uuid.uuid4().hex
+        shared.multi_history.update({
+            user_id: copy.deepcopy(shared.history)
+        })
+        
+    
+    # shared.generation_lock = Lock()
     # Launch the web UI
     create_interface()
     while True:
