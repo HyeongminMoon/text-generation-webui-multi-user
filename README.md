@@ -1,3 +1,6 @@
+** Now Multi user suppports is merged to the original repository. Please refer [Here]("https://github.com/oobabooga/text-generation-webui/issues/58#issuecomment-1659619800")to view further informations. 
+
+
 # Text generation web UI
 
 A gradio web UI for running Large Language Models like LLaMA, llama.cpp, GPT-J, Pythia, OPT, and GALACTICA.
